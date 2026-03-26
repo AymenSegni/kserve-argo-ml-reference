@@ -1,0 +1,99 @@
+---
+# ServiceMonitor for KServe InferenceService endpoints
+# Scrapes model server metrics (latency, throughput, errors)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kserve-inference-metrics
+  namespace: ml-monitoring
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: monitoring
+spec:
+  # Match services across all ML inference namespaces
+  namespaceSelector:
+    matchNames:
+      - ml-predictive
+      - ml-generative
+      - ml-graphs
+  selector:
+    matchExpressions:
+      - key: serving.kserve.io/inferenceservice
+        operator: Exists
+  endpoints:
+    # KServe model metrics (primary port)
+    - port: http
+      path: /metrics
+      interval: 15s
+      honorLabels: true
+    # Some runtimes (vLLM) expose on a dedicated metrics port
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      honorLabels: true
+---
+# ServiceMonitor for KServe controller metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kserve-controller-metrics
+  namespace: ml-monitoring
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kserve
+  selector:
+    matchLabels:
+      control-plane: kserve-controller-manager
+  endpoints:
+    - port: https
+      path: /metrics
+      interval: 30s
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+---
+# ServiceMonitor for KEDA operator metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: keda-metrics
+  namespace: ml-monitoring
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - keda
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keda-operator
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+---
+# ServiceMonitor for Knative Serving controller
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: knative-serving-metrics
+  namespace: ml-monitoring
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - knative-serving
+  selector:
+    matchLabels:
+      app: controller
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

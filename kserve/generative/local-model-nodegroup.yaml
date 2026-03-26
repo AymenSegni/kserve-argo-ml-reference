@@ -1,0 +1,17 @@
+# LocalModelNodeGroup configures nodes matching the selector
+# to pre-download LocalModelCache models to their NVMe disk
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNodeGroup
+metadata:
+  name: gpu-nodes
+  namespace: ml-generative
+spec:
+  nodeSelector:
+    nvidia.com/gpu.present: "true"
+  persistentVolumeClaim:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 100Gi
+    storageClassName: local-nvme

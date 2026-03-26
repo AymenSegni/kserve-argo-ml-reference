@@ -1,0 +1,47 @@
+# Mistral-7B-Instruct: Batch Generative InferenceService
+# KServe HuggingFace runtime with vLLM backend
+# Knative mode: scale 0→2 — for batch/async workloads
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: mistral-batch
+  namespace: ml-generative
+  annotations:
+    autoscaling.knative.dev/min-scale: "0"
+    autoscaling.knative.dev/max-scale: "2"
+    serving.kserve.io/enable-prometheus-scraping: "true"
+spec:
+  predictor:
+    annotations:
+      serving.kserve.io/storage-initializer-request-memory: "4Gi"
+      serving.kserve.io/storage-initializer-limit-memory: "8Gi"
+    model:
+      modelFormat:
+        name: huggingface
+      env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token-secret
+              key: HF_TOKEN
+      args:
+        - --model_id=mistralai/Mistral-7B-Instruct-v0.3
+        - --model_name=mistral-7b
+        - --dtype=bfloat16
+        - --max_model_len=8192
+        - --tensor_parallel_size=1
+        - --backend=vllm
+        - --gpu_memory_utilization=0.90
+      resources:
+        requests:
+          cpu: "4"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+    runtimeClassName: nvidia
+    serviceAccountName: ml-generative-sa
+    imagePullSecrets:
+      - name: hf-token-secret

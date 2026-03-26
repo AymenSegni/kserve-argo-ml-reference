@@ -1,0 +1,42 @@
+---
+# ArgoCD AppProject: kserve-gitops-blueprint
+# Scopes all ArgoCD Applications to specific namespaces and CRD types
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kserve-gitops-blueprint
+  namespace: argocd
+spec:
+  description: "A production-grade GitOps blueprint for deploying generative and predictive AI on Kubernetes using KServe, vLLM, and ArgoCD."
+  sourceRepos:
+    - 'https://github.com/AymenSegni/kserve-gitops-blueprint.git'
+  destinations:
+    # Inference namespaces
+    - namespace: 'ml-predictive'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'ml-generative'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'ml-graphs'
+      server: 'https://kubernetes.default.svc'
+    - namespace: 'ml-monitoring'
+      server: 'https://kubernetes.default.svc'
+  clusterResourceWhitelist:
+    - group: 'serving.kserve.io'
+      kind: '*'
+    - group: 'keda.sh'
+      kind: '*'
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: 'apps'
+      kind: '*'
+    - group: 'serving.kserve.io'
+      kind: '*'
+    - group: 'keda.sh'
+      kind: '*'
+    - group: 'monitoring.coreos.com'
+      kind: '*'
+    - group: 'batch'
+      kind: '*'
+  orphanedResources:
+    warn: true

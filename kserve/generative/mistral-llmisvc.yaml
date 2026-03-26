@@ -1,0 +1,30 @@
+# Mistral-7B-Instruct: LLMInferenceService (KServe v0.17+)
+# Provides simplified CRD orchestrating directly instead of Knative.
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: mistral-llm
+  namespace: ml-generative
+  annotations:
+    serving.kserve.io/enable-prometheus-scraping: "true"
+spec:
+  modelUri: hf://mistralai/Mistral-7B-Instruct-v0.3
+  replicas: 1
+  workerSpec:
+    tensorParallelSize: 1
+    resources:
+      requests:
+        cpu: "4"
+        memory: 16Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+    env:
+      - name: HF_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: hf-token-secret
+            key: HF_TOKEN
+    runtimeClassName: nvidia

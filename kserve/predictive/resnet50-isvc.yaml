@@ -1,0 +1,43 @@
+# ResNet-50: Predictive InferenceService
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: resnet50
+  namespace: ml-predictive
+  annotations:
+    # Scale to zero enabled (Knative)
+    autoscaling.knative.dev/min-scale: "0"
+    autoscaling.knative.dev/max-scale: "3"
+    autoscaling.knative.dev/targetBurstCapacity: "0"
+    autoscaling.knative.dev/target: "10" # Scale up when > 10 concurrent requests
+    serving.kserve.io/enable-prometheus-scraping: "true"
+spec:
+  predictor:
+    containers:
+      - name: kserve-container
+        image: ghcr.io/aymensegni/resnet50-server:v1
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        env:
+          - name: MODEL_NAME
+            value: resnet50
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+        readinessProbe:
+          httpGet:
+            path: /v2/health/ready
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /v2/health/live
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10

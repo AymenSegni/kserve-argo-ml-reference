@@ -1,0 +1,37 @@
+# InferenceGraph: Ensemble and Sequence routing pipeline
+#
+# Pipeline:
+# 1. Ensemble: Send input to both ResNet50 and Sentence-BERT in parallel
+# 2. Sequence: Collect those outputs and send them to Mistral for generation
+#
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: ml-pipeline
+  namespace: ml-graphs
+spec:
+  nodes:
+    # Node 1: Ensemble router (parallel execution)
+    root:
+      routerType: Ensemble
+      steps:
+        - serviceName: resnet50
+          name: image_features
+          # Predictor lives in ml-predictive namespace
+          serviceUrl: http://resnet50-predictor.ml-predictive.svc.cluster.local
+        - serviceName: sentence-bert
+          name: text_features
+          serviceUrl: http://sentence-bert-predictor.ml-predictive.svc.cluster.local
+      # Route the combined output to the next node
+      data: $request
+      next: sequence-node
+
+    # Node 2: Sequence router (chain execution)
+    sequence-node:
+      routerType: Sequence
+      steps:
+        - serviceName: mistral-batch
+          name: generator
+          serviceUrl: http://mistral-batch-predictor.ml-generative.svc.cluster.local
+          # Pass the output of the ensemble node as input to Mistral
+          data: $request

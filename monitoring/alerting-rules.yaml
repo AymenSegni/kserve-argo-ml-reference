@@ -1,0 +1,94 @@
+---
+# PrometheusRule: Alerting rules for KServe ML serving
+# Fires alerts when InferenceServices are unhealthy or degraded
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kserve-alerts
+  namespace: ml-monitoring
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: monitoring
+    prometheus: kube-prometheus-stack
+    role: alert-rules
+spec:
+  groups:
+    - name: kserve.inference
+      rules:
+        # Alert: InferenceService not ready for > 10 minutes
+        - alert: InferenceServiceNotReady
+          expr: |
+            kserve_inferenceservice_status{condition="Ready",status="True"} == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "InferenceService {{ $labels.name }} is not ready"
+            description: >-
+              InferenceService {{ $labels.name }} in namespace {{ $labels.namespace }}
+              has not been ready for more than 10 minutes.
+
+        # Alert: High request latency (p99 > 5s) for predictive models
+        - alert: HighPredictiveLatency
+          expr: |
+            histogram_quantile(0.99,
+              sum by (le, model_name) (
+                rate(kserve_model_request_latency_milliseconds_bucket{namespace=~"ml-predictive"}[5m])
+              )
+            ) > 5000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High latency for model {{ $labels.model_name }}"
+            description: >-
+              p99 latency for model {{ $labels.model_name }} has exceeded 5 seconds
+              for the last 5 minutes.
+
+        # Alert: High error rate (> 5% of requests failing)
+        - alert: HighInferenceErrorRate
+          expr: |
+            sum by (model_name, namespace) (
+              rate(kserve_model_request_total{response_code!="200"}[5m])
+            ) /
+            sum by (model_name, namespace) (
+              rate(kserve_model_request_total[5m])
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate for model {{ $labels.model_name }}"
+            description: >-
+              More than 5% of requests to {{ $labels.model_name }} in
+              {{ $labels.namespace }} are failing.
+
+    - name: kserve.gpu
+      rules:
+        # Alert: GPU memory utilisation > 95% for > 10 minutes
+        - alert: GPUMemoryPressure
+          expr: |
+            DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_FREE > 19
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU memory > 95% on {{ $labels.gpu }}"
+            description: >-
+              GPU {{ $labels.gpu }} on node {{ $labels.instance }} has been
+              using more than 95% of memory for 10 minutes.
+
+    - name: kserve.vllm
+      rules:
+        # Alert: vLLM request queue growing
+        - alert: VLLMRequestQueueGrowing
+          expr: |
+            sum(vllm:num_requests_waiting{namespace="ml-generative"}) > 10
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "vLLM request queue is growing"
+            description: >-
+              More than 10 requests are queued in vLLM across ml-generative
+              namespace. Consider scaling up or optimising batch size.

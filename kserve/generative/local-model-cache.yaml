@@ -1,0 +1,12 @@
+# LocalModelCache for pre-caching Mistral-7B weights
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: mistral-7b-cache
+  namespace: ml-generative
+spec:
+  sourceModelUri: "hf://mistralai/Mistral-7B-Instruct-v0.3"
+  modelSize: "15Gi"
+  nodeGroup: "gpu-nodes"
+  imagePullSecrets:
+    - name: hf-token-secret

@@ -1,0 +1,5 @@
+# Sentence-BERT KServe Model Server
+kserve>=0.17.0
+torch>=2.2.0
+transformers>=4.36.0
+numpy>=1.24.0

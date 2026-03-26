@@ -1,0 +1,60 @@
+# Mistral-7B-Instruct: Real-time Generative InferenceService
+# Standard deployment mode with KEDA autoscaling on vLLM concurrency
+# Always-warm (minReplicas: 1) — for real-time, low-latency serving
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: mistral-realtime
+  namespace: ml-generative
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"
+    serving.kserve.io/autoscalerClass: "keda"
+    serving.kserve.io/enable-prometheus-scraping: "true"
+spec:
+  predictor:
+    annotations:
+      serving.kserve.io/storage-initializer-request-memory: "4Gi"
+      serving.kserve.io/storage-initializer-limit-memory: "8Gi"
+    model:
+      modelFormat:
+        name: huggingface
+      env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token-secret
+              key: HF_TOKEN
+      args:
+        - --model_id=mistralai/Mistral-7B-Instruct-v0.3
+        - --model_name=mistral-7b
+        - --dtype=bfloat16
+        - --max_model_len=8192
+        - --tensor_parallel_size=1
+        - --backend=vllm
+        - --gpu_memory_utilization=0.90
+      resources:
+        requests:
+          cpu: "4"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+    minReplicas: 1
+    maxReplicas: 3
+    autoScaling:
+      metrics:
+        - type: External
+          external:
+            metric:
+              backend: "prometheus"
+              serverAddress: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+              query: sum(vllm:num_requests_running{namespace="ml-generative",pod=~"mistral-realtime-predictor.*"})
+            target:
+              type: Value
+              value: "3"
+    runtimeClassName: nvidia
+    serviceAccountName: ml-generative-sa
+    imagePullSecrets:
+      - name: hf-token-secret

@@ -1,0 +1,32 @@
+---
+# ArgoCD Application: InferenceGraphs
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ml-graphs
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: kserve-gitops-blueprint
+    app.kubernetes.io/component: inference-graphs
+spec:
+  project: kserve-gitops-blueprint
+  source:
+    repoURL: 'https://github.com/AymenSegni/kserve-gitops-blueprint.git'
+    targetRevision: main
+    path: kserve/graphs
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: ml-graphs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

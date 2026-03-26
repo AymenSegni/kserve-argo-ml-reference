@@ -1,0 +1,5 @@
+# ResNet-50 KServe Model Server
+kserve>=0.17.0
+torch>=2.2.0
+torchvision>=0.17.0
+Pillow>=10.0.0

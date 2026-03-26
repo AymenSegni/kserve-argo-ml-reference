@@ -1,0 +1,42 @@
+# ResNet-50: Canary Rollout Example
+# Demonstrates 90% traffic to stable revision, 10% to canary
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: resnet50-canary
+  namespace: ml-predictive
+  annotations:
+    serving.kserve.io/enable-prometheus-scraping: "true"
+spec:
+  predictor:
+    # Canary traffic percentage (10%)
+    canaryTrafficPercent: 10
+    containers:
+      - name: kserve-container
+        # Imagine this is v2 of our model
+        image: ghcr.io/aymensegni/resnet50-server:v2
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        env:
+          - name: MODEL_NAME
+            value: resnet50-canary
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+        readinessProbe:
+          httpGet:
+            path: /v2/health/ready
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /v2/health/live
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
