@@ -13,7 +13,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY model.py /app/model.py
 
 # Pre-download model into image
-ENV TRANSFORMERS_CACHE=/app/.cache
+ENV HF_HOME=/app/.cache
 RUN python -c "from transformers import AutoModel, AutoTokenizer; m='sentence-transformers/all-MiniLM-L6-v2'; AutoTokenizer.from_pretrained(m); AutoModel.from_pretrained(m)"
 RUN chmod -R 777 /app/.cache
 

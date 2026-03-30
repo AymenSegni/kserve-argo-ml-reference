@@ -61,38 +61,44 @@ class ResNet50Server(kserve.Model):
             
         return images
 
-    def predict(self, inputs: List[torch.Tensor], headers: Dict[str, str] = None) -> List[torch.Tensor]:
-        logger.info("Running inference")
+    def predict(self, inputs: List[torch.Tensor], headers: Dict[str, str] = None) -> torch.Tensor:
+        logger.info(f"Running inference on batch of {len(inputs)} images")
         
-        # Batch images
+        # Batch images: [batch_size, C, H, W]
         batch = torch.stack(inputs)
         
         with torch.no_grad():
             outputs = self.model(batch)
-            probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
+            # Apply softmax across class dimension for ALL images in batch
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)
             
         return probabilities
 
     def postprocess(self, result: torch.Tensor, headers: Dict[str, str] = None) -> InferResponse:
         logger.info("Formatting response")
         
-        # Get top 5 predictions
-        top5_prob, top5_catid = torch.topk(result, 5)
+        batch_size = result.shape[0]
+        all_predictions = []
         
-        predictions = []
-        for i in range(top5_prob.size(0)):
-            predictions.append({
-                "label": self.categories[top5_catid[i]],
-                "probability": float(top5_prob[i]),
-                "class_id": int(top5_catid[i])
-            })
+        for b in range(batch_size):
+            # Get top 5 predictions for each image
+            top5_prob, top5_catid = torch.topk(result[b], 5)
+            
+            predictions = []
+            for i in range(top5_prob.size(0)):
+                predictions.append({
+                    "label": self.categories[top5_catid[i]],
+                    "probability": float(top5_prob[i]),
+                    "class_id": int(top5_catid[i])
+                })
+            all_predictions.append(predictions)
             
         # Create V2 protocol response
         infer_output = InferOutput(
             name="predictions",
             datatype="BYTES",
-            shape=[1],
-            data=[json.dumps(predictions)]
+            shape=[batch_size],
+            data=[json.dumps(preds) for preds in all_predictions]
         )
         
         return InferResponse(

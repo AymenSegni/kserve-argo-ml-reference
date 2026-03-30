@@ -56,5 +56,3 @@ spec:
               value: "3"
     runtimeClassName: nvidia
     serviceAccountName: ml-generative-sa
-    imagePullSecrets:
-      - name: hf-token-secret

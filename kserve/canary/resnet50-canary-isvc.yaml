@@ -1,26 +1,36 @@
 # ResNet-50: Canary Rollout Example
-# Demonstrates 90% traffic to stable revision, 10% to canary
+#
+# A canary rollout in KServe works by updating the SAME InferenceService
+# with a new container image. KServe keeps the old "default" revision and
+# splits traffic based on `canaryTrafficPercent`.
+#
+# To perform a canary:
+#   1. Start with a deployed ISVC (e.g., resnet50-isvc.yaml with image :v1)
+#   2. Update the image to :v2 and add canaryTrafficPercent
+#   3. Apply this manifest — KServe splits traffic 90/10
+#   4. Monitor metrics, then promote by removing canaryTrafficPercent
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: resnet50-canary
+  # IMPORTANT: Same name as the original ISVC — this is an UPDATE, not a new service
+  name: resnet50
   namespace: ml-predictive
   annotations:
     serving.kserve.io/enable-prometheus-scraping: "true"
 spec:
   predictor:
-    # Canary traffic percentage (10%)
+    # 10% of traffic goes to this new (canary) revision
     canaryTrafficPercent: 10
     containers:
       - name: kserve-container
-        # Imagine this is v2 of our model
+        # Updated image (v2) — the canary revision
         image: ghcr.io/aymensegni/resnet50-server:v2
         ports:
           - containerPort: 8080
             protocol: TCP
         env:
           - name: MODEL_NAME
-            value: resnet50-canary
+            value: resnet50
         resources:
           requests:
             cpu: "1"

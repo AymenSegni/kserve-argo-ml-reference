@@ -1,9 +1,11 @@
-# InferenceGraph: Ensemble and Sequence routing pipeline
+# InferenceGraph: Ensemble + Sequence multi-model pipeline
 #
 # Pipeline:
 # 1. Ensemble: Send input to both ResNet50 and Sentence-BERT in parallel
-# 2. Sequence: Collect those outputs and send them to Mistral for generation
+# 2. Sequence: Feed combined output to Mistral for generation
 #
+# NOTE: Cross-namespace routing requires Istio mTLS policies to allow
+# traffic between ml-graphs, ml-predictive, and ml-generative namespaces.
 apiVersion: serving.kserve.io/v1alpha1
 kind: InferenceGraph
 metadata:
@@ -11,27 +13,26 @@ metadata:
   namespace: ml-graphs
 spec:
   nodes:
-    # Node 1: Ensemble router (parallel execution)
+    # Root node: Ensemble router (parallel execution)
     root:
       routerType: Ensemble
       steps:
-        - serviceName: resnet50
-          name: image_features
-          # Predictor lives in ml-predictive namespace
+        - name: image-features
+          serviceName: resnet50
+          serviceNamespace: ml-predictive
           serviceUrl: http://resnet50-predictor.ml-predictive.svc.cluster.local
-        - serviceName: sentence-bert
-          name: text_features
+        - name: text-features
+          serviceName: sentence-bert
+          serviceNamespace: ml-predictive
           serviceUrl: http://sentence-bert-predictor.ml-predictive.svc.cluster.local
-      # Route the combined output to the next node
-      data: $request
-      next: sequence-node
+        # Route ensemble output to the sequence node
+        - nodeName: sequence-node
 
-    # Node 2: Sequence router (chain execution)
+    # Sequence node: chain execution
     sequence-node:
       routerType: Sequence
       steps:
-        - serviceName: mistral-batch
-          name: generator
+        - name: generator
+          serviceName: mistral-batch
+          serviceNamespace: ml-generative
           serviceUrl: http://mistral-batch-predictor.ml-generative.svc.cluster.local
-          # Pass the output of the ensemble node as input to Mistral
-          data: $request

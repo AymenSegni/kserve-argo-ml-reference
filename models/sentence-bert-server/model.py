@@ -69,8 +69,8 @@ class SentenceBERTServer(kserve.Model):
         
         embeddings_list = result.cpu().numpy().tolist()
         
-        # Output shape is [batch_size, 384] for all-MiniLM-L6-v2
-        shape = [len(embeddings_list), 384]
+        # Derive shape from actual tensor (works for any embedding model)
+        shape = list(result.shape)  # e.g. [batch_size, 384] or [batch_size, 768]
         
         # Flatten the list for output data
         flat_data = [item for sublist in embeddings_list for item in sublist]
